@@ -501,13 +501,19 @@ function boot(){
 
   ensureDefaults(); wireUI();
   tickInterval=setInterval(tick,500);
+  show("scr-landing");   // provisional while first data arrives; render() takes over
 }
 async function ensureDefaults(){
-  const snap = await roomRef.child("config").get();
-  if(!snap.exists()){
-    await roomRef.child("config").set(defaultConfig());
-    await liveRef.set({ phase:"lobby", period:0 });
-  }
+  try{
+    const cfgSnap = await roomRef.child("config").get();
+    if(!cfgSnap.exists()) await roomRef.child("config").set(defaultConfig());
+    const liveSnap = await liveRef.get();
+    if(!liveSnap.exists() || !liveSnap.val() || !liveSnap.val().phase){
+      // fresh database, or leftovers from the old call-market version:
+      // create the live node and clear obsolete v1 nodes (state/orders)
+      await roomRef.update({ live:{phase:"lobby", period:0}, state:null, orders:null });
+    }
+  }catch(e){ toast("Can't reach the database — check your connection."); }
 }
 function defaultConfig(){ return { periods:15, timerSec:180, startCash:600, startShares:4, dividends:[0,8,28,60], showFV:false, anon:false }; }
 
