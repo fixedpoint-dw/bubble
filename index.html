@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Bubble Lab — Classroom Asset Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --paper:#F3F5F1; --card:#FFFFFF; --ink:#14231D; --muted:#5C6E64;
+  --line:#DAE2DC; --pine:#185C4B; --pine-dark:#0F4438;
+  --buy:#0E7C4F; --buy-bg:#E7F4EC; --sell:#C03A2B; --sell-bg:#FBEAE7;
+  --fv:#D99000; --chip:#EDF1EC;
+  --radius:14px; --shadow:0 1px 3px rgba(20,35,29,.08), 0 4px 14px rgba(20,35,29,.06);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; padding:0}
+body{background:var(--paper); color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding-bottom:40px}
+h1,h2,h3,.display{font-family:"Space Grotesk",sans-serif; letter-spacing:-.01em}
+.mono{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.screen{display:none; max-width:560px; margin:0 auto; padding:16px}
+.screen.active{display:block}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:14px}
+.card h3{margin:0 0 10px; font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+button{font-family:"Space Grotesk",sans-serif; font-weight:700; font-size:17px; border:none; border-radius:12px; padding:14px 18px; cursor:pointer; touch-action:manipulation}
+button:disabled{opacity:.45; cursor:default}
+.btn-primary{background:var(--pine); color:#fff; width:100%}
+.btn-primary:active{background:var(--pine-dark)}
+.btn-ghost{background:var(--chip); color:var(--ink); width:100%}
+.btn-danger{background:var(--sell); color:#fff}
+.btn-small{font-size:13px; padding:8px 12px; border-radius:9px}
+input[type=text],input[type=password],input[type=number]{width:100%; font-size:17px; padding:13px 14px; border:1.5px solid var(--line); border-radius:12px; background:#fff; color:var(--ink)}
+input:focus{outline:2px solid var(--pine); border-color:var(--pine)}
+label{display:block; font-size:13px; font-weight:600; color:var(--muted); margin:12px 0 5px; text-transform:uppercase; letter-spacing:.05em}
+.row{display:flex; gap:10px}
+.row>*{flex:1}
+
+/* ticker header */
+.tape{position:sticky; top:0; z-index:50; background:var(--ink); color:#EDF3EE; margin:-16px -16px 14px; padding:10px 16px calc(10px + env(safe-area-inset-top,0)); display:flex; justify-content:space-between; align-items:center; gap:8px}
+.tape .cell{text-align:center; min-width:0}
+.tape .lbl{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:#9DB4A8}
+.tape .val{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:17px; white-space:nowrap}
+.tape .val.up{color:#6FE3A5}.tape .val.down{color:#FF9C8A}
+.timerchip{background:#2A3B33; border-radius:999px; padding:4px 12px; font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:15px}
+.timerchip.hot{background:var(--sell); animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.6}}
+
+.brand{display:flex; align-items:baseline; gap:8px; margin:22px 0 4px}
+.brand h1{font-size:30px; margin:0}
+.brand .tag{color:var(--muted); font-size:13px}
+.sub{color:var(--muted); font-size:14px; margin:0 0 18px}
+
+.bigprice{text-align:center; padding:6px 0 2px}
+.bigprice .p{font-family:"IBM Plex Mono",monospace; font-size:42px; font-weight:600; line-height:1.1}
+.bigprice .d{font-size:13px; color:var(--muted)}
+
+.seg{display:flex; background:var(--chip); border-radius:12px; padding:4px; gap:4px}
+.seg button{flex:1; background:transparent; color:var(--muted); font-size:15px; padding:11px 6px; border-radius:9px}
+.seg button.on-buy{background:var(--buy); color:#fff}
+.seg button.on-sell{background:var(--sell); color:#fff}
+.seg button.on-pass{background:var(--ink); color:#fff}
+
+.stepper{display:flex; align-items:center; gap:10px}
+.stepper button{width:52px; height:48px; font-size:24px; background:var(--chip); color:var(--ink); padding:0}
+.stepper input{text-align:center; font-family:"IBM Plex Mono",monospace; font-weight:600}
+
+.pill{display:inline-block; background:var(--chip); border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; color:var(--muted)}
+.pill.ok{background:var(--buy-bg); color:var(--buy)}
+.pill.warn{background:var(--sell-bg); color:var(--sell)}
+
+.plist{list-style:none; margin:0; padding:0}
+.plist li{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:15px}
+.plist li:last-child{border-bottom:none}
+.plist .nm{font-weight:600; display:flex; align-items:center; gap:8px}
+.dot{width:8px;height:8px;border-radius:50%; background:#C7D2CA; flex:none}
+.dot.done{background:var(--buy)}
+.chartbox{position:relative; width:100%; height:230px}
+.chartbox.tall{height:260px}
+
+.stat3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px}
+.stat{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px 10px; text-align:center}
+.stat .v{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:19px}
+.stat .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:2px}
+
+.result-banner{border-left:4px solid var(--fv); background:#FFF8EA; border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:14px}
+.notice{background:var(--chip); border-radius:10px; padding:10px 12px; font-size:14px; color:var(--muted); margin-top:10px}
+.admin-link{display:block; text-align:center; margin-top:26px; color:var(--muted); font-size:13px; text-decoration:underline; background:none; border:none; width:100%; padding:8px; font-family:inherit; font-weight:400; cursor:pointer}
+table.book{width:100%; border-collapse:collapse; font-size:14px}
+table.book th{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); text-align:left; padding:6px 4px; border-bottom:1px solid var(--line)}
+table.book td{padding:8px 4px; border-bottom:1px solid var(--line)}
+.rank1 td{background:#FDF6E3}
+.q{margin:0 0 10px; padding-left:20px}
+.q li{margin-bottom:8px; font-size:15px}
+code{background:var(--chip); padding:2px 6px; border-radius:6px; font-size:14px}
+.setupstep{display:flex; gap:12px; margin-bottom:14px; font-size:15px}
+.setupstep .n{flex:none; width:26px; height:26px; border-radius:50%; background:var(--pine); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px}
+.toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:99; max-width:90vw; text-align:center}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){ .timerchip.hot{animation:none} }
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP (Firebase not configured) ============ -->
+<div class="screen" id="scr-setup">
+  <div class="brand"><h1>Bubble Lab</h1><span class="tag">setup</span></div>
+  <p class="sub">One-time setup for the instructor: connect this page to a free Firebase database so students' phones can sync.</p>
+  <div class="card">
+    <div class="setupstep"><div class="n">1</div><div>Go to <b>console.firebase.google.com</b> → Add project (any name, Analytics off).</div></div>
+    <div class="setupstep"><div class="n">2</div><div>In the project: <b>Build → Realtime Database → Create database</b> → choose a region → start in <b>test mode</b>.</div></div>
+    <div class="setupstep"><div class="n">3</div><div>Project settings (gear icon) → <b>Your apps → Web app (&lt;/&gt;)</b> → register → copy the <code>firebaseConfig</code> object.</div></div>
+    <div class="setupstep"><div class="n">4</div><div>Open <code>index.html</code> in any text editor, paste your values into the <code>firebaseConfig</code> block at the top of the script, and re-upload to GitHub.</div></div>
+  </div>
+  <div class="notice">Make sure the config includes a <code>databaseURL</code> line. If it doesn't appear automatically, copy the URL shown at the top of the Realtime Database page.</div>
+</div>
+
+<!-- ============ LANDING ============ -->
+<div class="screen" id="scr-landing">
+  <div class="brand"><h1>Bubble Lab</h1><span class="tag">asset market experiment</span></div>
+  <p class="sub">A live classroom replication of Vernon Smith's asset-bubble experiment. Trade a dividend-paying asset with your classmates and see what price emerges.</p>
+  <div class="card" id="joinCard">
+    <h3>Join the market</h3>
+    <label for="nameInput">Your trader name</label>
+    <input type="text" id="nameInput" maxlength="18" placeholder="e.g. Minji" autocomplete="off">
+    <div style="height:12px"></div>
+    <button class="btn-primary" id="joinBtn">Take a seat on the floor</button>
+    <div class="notice" id="joinNotice" style="display:none"></div>
+  </div>
+  <button class="admin-link" id="showAdminBtn">Instructor login</button>
+  <div class="card" id="adminLoginCard" style="display:none">
+    <h3>Instructor</h3>
+    <label for="pwInput">Password</label>
+    <input type="password" id="pwInput" autocomplete="off">
+    <div style="height:12px"></div>
+    <button class="btn-primary" id="adminLoginBtn">Open control room</button>
+  </div>
+</div>
+
+<!-- ============ PLAYER LOBBY ============ -->
+<div class="screen" id="scr-lobby">
+  <div class="brand"><h1>Trading floor opens soon</h1></div>
+  <p class="sub">You're seated, <b id="lobbyName"></b>. Waiting for the instructor to open the market.</p>
+  <div class="card">
+    <h3>How this market works</h3>
+    <ul class="q" id="rulesList"></ul>
+  </div>
+  <div class="card">
+    <h3>Traders seated (<span id="lobbyCount">0</span>)</h3>
+    <ul class="plist" id="lobbyList"></ul>
+  </div>
+</div>
+
+<!-- ============ PLAYER TRADING ============ -->
+<div class="screen" id="scr-trade">
+  <div class="tape">
+    <div class="cell"><div class="lbl">Period</div><div class="val" id="tPeriod">–</div></div>
+    <div class="cell"><div class="lbl">Last price</div><div class="val" id="tPrice">–</div></div>
+    <div class="cell"><div class="lbl">Cash</div><div class="val" id="tCash">–</div></div>
+    <div class="cell"><div class="lbl">Shares</div><div class="val" id="tShares">–</div></div>
+    <div class="cell" id="tTimerCell" style="display:none"><div class="timerchip" id="tTimer">–</div></div>
+  </div>
+
+  <div id="lastResultBanner" class="result-banner" style="display:none"></div>
+
+  <div class="card">
+    <h3>Market history</h3>
+    <div class="chartbox"><canvas id="playerChart"></canvas></div>
+  </div>
+
+  <div class="card" id="orderCard">
+    <h3>Your order — one per period</h3>
+    <div class="seg" id="sideSeg">
+      <button data-side="buy" id="segBuy">Buy</button>
+      <button data-side="sell" id="segSell">Sell</button>
+      <button data-side="pass" id="segPass">Sit out</button>
+    </div>
+    <div id="orderFields">
+      <label>Quantity (shares)</label>
+      <div class="stepper">
+        <button id="qtyMinus" aria-label="fewer">−</button>
+        <input type="number" id="qtyInput" inputmode="numeric" min="1" value="1">
+        <button id="qtyPlus" aria-label="more">+</button>
+      </div>
+      <label id="priceLabel">Price per share ($)</label>
+      <input type="number" id="priceInput" inputmode="decimal" step="0.01" min="0.01" placeholder="e.g. 2.50">
+      <div class="notice" id="orderHint"></div>
+    </div>
+    <div style="height:12px"></div>
+    <button class="btn-primary" id="submitOrderBtn">Submit order</button>
+    <div class="notice" id="submittedNote" style="display:none"></div>
+  </div>
+
+  <div class="card">
+    <h3>Waiting on <span id="waitCount">–</span></h3>
+    <ul class="plist" id="tradeList"></ul>
+  </div>
+  <div class="notice" id="observerNote" style="display:none">You're watching as an observer — the market started before you joined. You'll be able to join the next game.</div>
+</div>
+
+<!-- ============ ADMIN ============ -->
+<div class="screen" id="scr-admin">
+  <div class="tape">
+    <div class="cell"><div class="lbl">Phase</div><div class="val" id="aPhase">–</div></div>
+    <div class="cell"><div class="lbl">Period</div><div class="val" id="aPeriod">–</div></div>
+    <div class="cell"><div class="lbl">Last price</div><div class="val" id="aPrice">–</div></div>
+    <div class="cell" id="aTimerCell" style="display:none"><div class="timerchip" id="aTimer">–</div></div>
+  </div>
+
+  <div class="notice" style="margin:0 0 14px"><b>Keep this page open during play.</b> Your device runs the market: it clears trades when everyone has submitted (or when you force / the timer ends).</div>
+
+  <div class="card" id="adminConfigCard">
+    <h3>Game setup</h3>
+    <div class="row">
+      <div><label>Trading periods</label><input type="number" id="cfgPeriods" inputmode="numeric" min="2" max="30" value="15"></div>
+      <div><label>Timer per period (sec, 0 = off)</label><input type="number" id="cfgTimer" inputmode="numeric" min="0" value="120"></div>
+    </div>
+    <div class="row">
+      <div><label>Starting cash ($)</label><input type="number" id="cfgCash" step="0.5" min="0" value="6.00"></div>
+      <div><label>Starting shares</label><input type="number" id="cfgShares" inputmode="numeric" min="0" value="4"></div>
+    </div>
+    <label>Possible dividends per share (¢, comma-separated, drawn at random each period)</label>
+    <input type="text" id="cfgDivs" value="0, 8, 28, 60">
+    <label style="display:flex; align-items:center; gap:10px; text-transform:none; font-size:15px; margin-top:14px">
+      <input type="checkbox" id="cfgShowFV" style="width:22px; height:22px"> Show the fundamental-value line to students during play
+    </label>
+    <div class="notice">Expected dividend: <b id="cfgEV" class="mono">24¢</b> → fundamental value in period 1: <b id="cfgFV1" class="mono">$3.60</b></div>
+    <div style="height:12px"></div>
+    <button class="btn-primary" id="startGameBtn">Open the market</button>
+  </div>
+
+  <div class="card" id="adminLiveCard" style="display:none">
+    <h3>Live controls</h3>
+    <div class="row">
+      <button class="btn-ghost" id="startTimerBtn">Start timer</button>
+      <button class="btn-danger" id="forceBtn">Force period close</button>
+    </div>
+    <div style="height:10px"></div>
+    <button class="btn-ghost" id="endGameBtn">End game now → analysis</button>
+  </div>
+
+  <div class="card">
+    <h3>Market history</h3>
+    <div class="chartbox"><canvas id="adminChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>Traders (<span id="aCount">0</span>) — <span id="aSubmitted">0</span> submitted</h3>
+    <ul class="plist" id="adminList"></ul>
+  </div>
+
+  <div class="card">
+    <h3>Danger zone</h3>
+    <button class="btn-ghost" id="resetBtn">Reset game (keep setup, clear players &amp; history)</button>
+  </div>
+</div>
+
+<!-- ============ ANALYSIS ============ -->
+<div class="screen" id="scr-analysis">
+  <div class="brand"><h1>Post-mortem</h1><span class="tag">what just happened?</span></div>
+  <p class="sub">The asset is now worthless — every dividend has been paid. Here's the story of your market.</p>
+
+  <div class="stat3" id="metricRow"></div>
+
+  <div class="card">
+    <h3>Price vs. fundamental value</h3>
+    <div class="chartbox tall"><canvas id="anPriceChart"></canvas></div>
+    <div class="notice">The dashed line is what the asset was actually worth: expected remaining dividends. Everything above it is bubble.</div>
+  </div>
+
+  <div class="card">
+    <h3>Trading volume by period</h3>
+    <div class="chartbox"><canvas id="anVolChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>Final standings (cash after last dividend)</h3>
+    <table class="book" id="leaderTable"></table>
+  </div>
+
+  <div class="card">
+    <h3>Dividends drawn</h3>
+    <div class="mono" id="divLog" style="font-size:14px; line-height:1.9"></div>
+  </div>
+
+  <div class="card">
+    <h3>Discussion</h3>
+    <ol class="q">
+      <li>Everyone knew the dividend odds, so everyone could compute the fundamental value. Why did the price still leave it?</li>
+      <li>Look at who finished at the top. Did they trade close to fundamentals, or did they ride the momentum and get out in time?</li>
+      <li>If we ran this exact market again with the same group, would the bubble be bigger or smaller? (Smith found bubbles shrink with experience.)</li>
+      <li>What real-world markets does this remind you of, and what was that market's "final period"?</li>
+    </ol>
+  </div>
+
+  <div class="card" id="adminResetCard" style="display:none">
+    <h3>Instructor</h3>
+    <button class="btn-primary" id="playAgainBtn">Play again with the same class</button>
+    <div style="height:10px"></div>
+    <button class="btn-ghost" id="fullResetBtn">Full reset (clear everything)</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   INSTRUCTOR: PASTE YOUR FIREBASE CONFIG BETWEEN THE LINES BELOW.
+   (Firebase console → Project settings → Your apps → SDK setup & config)
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_PROJECT.firebaseapp.com",
+  databaseURL: "PASTE_DATABASE_URL",   // e.g. https://yourproject-default-rtdb.firebaseio.com
+  projectId: "PASTE_PROJECT_ID",
+  storageBucket: "PASTE_PROJECT.appspot.com",
+  messagingSenderId: "PASTE_SENDER_ID",
+  appId: "PASTE_APP_ID"
+};
+/* ===================================================================== */
+
+const ADMIN_PASSWORD = "rationalbubble";
+const ROOM = "classroom";
+
+/* ---------- tiny helpers ---------- */
+const $ = id => document.getElementById(id);
+const fmt$ = c => (c==null || isNaN(c)) ? "–" : "$" + (c/100).toFixed(2);
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k]||null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+};
+const mem = {};
+let toastTimer=null;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2600); }
+
+/* ---------- app state ---------- */
+let db=null, roomRef=null;
+let me = { id: store.get("vsb_pid"), name: store.get("vsb_name") };
+let isAdmin = store.get("vsb_admin")==="1";
+let CFG=null, ST=null, PLAYERS={}, HISTORY={}, ORDERS={};
+let ordersRef=null, ordersPeriod=null;
+let serverOffset=0;
+let advancing=false;
+let charts={};
+let uiSide=null;                 // current order-pad side selection
+let tickInterval=null;
+
+/* ---------- boot ---------- */
+function configured(){ return firebaseConfig.apiKey && !String(firebaseConfig.apiKey).startsWith("PASTE"); }
+
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+
+function boot(){
+  if(!configured()){ show("scr-setup"); return; }
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  roomRef = db.ref("rooms/"+ROOM);
+  db.ref(".info/serverTimeOffset").on("value", s=>{ serverOffset = s.val()||0; });
+
+  roomRef.child("config").on("value", s=>{ CFG=s.val(); render(); });
+  roomRef.child("state").on("value",  s=>{ ST=s.val();  syncOrdersListener(); render(); });
+  roomRef.child("players").on("value",s=>{ PLAYERS=s.val()||{}; render(); });
+  roomRef.child("history").on("value",s=>{ HISTORY=s.val()||{}; render(); });
+
+  ensureDefaults();
+  wireUI();
+  tickInterval = setInterval(tick, 500);
+  render();
+}
+
+async function ensureDefaults(){
+  const snap = await roomRef.child("config").get();
+  if(!snap.exists()){
+    await roomRef.child("config").set(defaultConfig());
+    await roomRef.child("state").set({ phase:"lobby", period:0, timerEnd:null });
+  }
+}
+function defaultConfig(){
+  return { periods:15, timerSec:120, startCash:600, startShares:4, dividends:[0,8,28,60], showFV:false };
+}
+
+/* ---------- derived values ---------- */
+function expDiv(cfg){ const d=(cfg&&cfg.dividends)||[0]; return d.reduce((a,b)=>a+b,0)/d.length; }
+function fundamental(cfg, period){ return Math.round(expDiv(cfg) * (cfg.periods - period + 1)); }
+function activePlayers(){ return Object.entries(PLAYERS).filter(([,p])=>p.active); }
+function lastTradedPrice(){
+  let lp=null;
+  for(let p=1; p<=(ST?ST.period:0); p++){ if(HISTORY[p] && HISTORY[p].price!=null) lp=HISTORY[p].price; }
+  return lp;
+}
+function now(){ return Date.now()+serverOffset; }
+
+/* ---------- orders listener (per period) ---------- */
+function syncOrdersListener(){
+  if(!ST) return;
+  if(ordersPeriod===ST.period) return;
+  if(ordersRef) ordersRef.off();
+  ordersPeriod = ST.period;
+  ORDERS = {};
+  if(ST.period>0){
+    ordersRef = roomRef.child("orders/"+ST.period);
+    ordersRef.on("value", s=>{ ORDERS=s.val()||{}; onOrdersChange(); render(); });
+  }
+}
+function onOrdersChange(){
+  if(!isAdmin || !ST || ST.phase!=="trading") return;
+  const act = activePlayers();
+  if(act.length>0 && act.every(([pid])=>ORDERS[pid])) advance(false);
+}
+
+/* ---------- timer tick ---------- */
+function tick(){
+  if(!ST) return;
+  const remain = ST.timerEnd ? Math.max(0, Math.ceil((ST.timerEnd-now())/1000)) : null;
+  updateTimerChip("tTimer","tTimerCell",remain);
+  updateTimerChip("aTimer","aTimerCell",remain);
+  if(isAdmin && ST.phase==="trading" && ST.timerEnd && now()>ST.timerEnd) advance(true);
+}
+function updateTimerChip(id, cellId, remain){
+  const cell=$(cellId), chip=$(id);
+  if(remain==null || !ST || ST.phase!=="trading"){ cell.style.display="none"; return; }
+  cell.style.display="";
+  chip.textContent = Math.floor(remain/60)+":"+String(remain%60).padStart(2,"0");
+  chip.classList.toggle("hot", remain<=10);
+}
+
+/* ---------- UI wiring ---------- */
+function wireUI(){
+  $("joinBtn").onclick = join;
+  $("nameInput").addEventListener("keydown", e=>{ if(e.key==="Enter") join(); });
+  $("showAdminBtn").onclick = ()=>{ const c=$("adminLoginCard"); c.style.display = c.style.display==="none" ? "" : "none"; };
+  $("adminLoginBtn").onclick = adminLogin;
+  $("pwInput").addEventListener("keydown", e=>{ if(e.key==="Enter") adminLogin(); });
+
+  document.querySelectorAll("#sideSeg button").forEach(b=>{
+    b.onclick = ()=>{ uiSide=b.dataset.side; renderOrderPad(); };
+  });
+  $("qtyMinus").onclick = ()=>{ const i=$("qtyInput"); i.value=Math.max(1,(parseInt(i.value)||1)-1); renderOrderHint(); };
+  $("qtyPlus").onclick  = ()=>{ const i=$("qtyInput"); i.value=(parseInt(i.value)||0)+1; renderOrderHint(); };
+  $("qtyInput").oninput = renderOrderHint;
+  $("priceInput").oninput = renderOrderHint;
+  $("submitOrderBtn").onclick = submitOrder;
+
+  ["cfgPeriods","cfgDivs"].forEach(id=>$(id).addEventListener("input", updateCfgPreview));
+  $("startGameBtn").onclick = startGame;
+  $("forceBtn").onclick = ()=>{ if(confirm("Close this period now? Traders who haven't submitted will sit out.")) advance(true); };
+  $("startTimerBtn").onclick = startTimer;
+  $("endGameBtn").onclick = ()=>{ if(confirm("End the game and jump to the analysis?")) endGame(); };
+  $("resetBtn").onclick = ()=>{ if(confirm("Clear all players, orders and history?")) resetGame(false); };
+  $("playAgainBtn").onclick = ()=>resetGame(true);
+  $("fullResetBtn").onclick = ()=>{ if(confirm("Clear everything including players?")) resetGame(false); };
+}
+
+/* ---------- join / login ---------- */
+async function join(){
+  const name = $("nameInput").value.trim();
+  if(!name){ toast("Pick a name first"); return; }
+  if(ST && ST.phase!=="lobby"){
+    const n=$("joinNotice"); n.style.display=""; n.textContent="The market is already open — you can watch, and join the next game.";
+    me = { id:"obs", name:name }; render(); show("scr-trade"); $("observerNote").style.display=""; $("orderCard").style.display="none";
+    return;
+  }
+  const pid = "p" + Math.random().toString(36).slice(2,10);
+  const cfg = CFG || defaultConfig();
+  await roomRef.child("players/"+pid).set({
+    name, cash:cfg.startCash, shares:cfg.startShares, active:true,
+    joinedAt: firebase.database.ServerValue.TIMESTAMP,
+    stats:{bought:0,sold:0,spent:0,earned:0,div:0}
+  });
+  me = {id:pid, name};
+  store.set("vsb_pid",pid); store.set("vsb_name",name);
+  render();
+}
+
+function adminLogin(){
+  if($("pwInput").value===ADMIN_PASSWORD){
+    isAdmin=true; store.set("vsb_admin","1"); toast("Welcome, instructor"); render();
+  } else toast("Wrong password");
+}
+
+/* ---------- admin: config & lifecycle ---------- */
+function updateCfgPreview(){
+  const divs = parseDivs($("cfgDivs").value);
+  const ev = divs.length? divs.reduce((a,b)=>a+b,0)/divs.length : 0;
+  const T = parseInt($("cfgPeriods").value)||0;
+  $("cfgEV").textContent = ev.toFixed(0)+"¢";
+  $("cfgFV1").textContent = fmt$(Math.round(ev*T));
+}
+function parseDivs(str){
+  return String(str).split(",").map(s=>parseFloat(s.trim())).filter(v=>!isNaN(v)&&v>=0).map(v=>Math.round(v));
+}
+
+async function startGame(){
+  const cfg = {
+    periods: Math.max(2, parseInt($("cfgPeriods").value)||15),
+    timerSec: Math.max(0, parseInt($("cfgTimer").value)||0),
+    startCash: Math.round((parseFloat($("cfgCash").value)||6)*100),
+    startShares: Math.max(0, parseInt($("cfgShares").value)||4),
+    dividends: parseDivs($("cfgDivs").value),
+    showFV: $("cfgShowFV").checked
+  };
+  if(cfg.dividends.length===0){ toast("Enter at least one dividend value"); return; }
+  const act = activePlayers();
+  if(act.length<2){ toast("Need at least 2 traders seated"); return; }
+  const updates = { config:cfg };
+  for(const [pid] of Object.entries(PLAYERS)){
+    updates["players/"+pid+"/cash"]=cfg.startCash;
+    updates["players/"+pid+"/shares"]=cfg.startShares;
+    updates["players/"+pid+"/stats"]={bought:0,sold:0,spent:0,earned:0,div:0};
+  }
+  updates["orders"]=null; updates["history"]=null;
+  updates["state"]={ phase:"trading", period:1, timerEnd: cfg.timerSec>0 ? now()+cfg.timerSec*1000 : null };
+  await roomRef.update(updates);
+  toast("Market open — period 1");
+}
+
+async function startTimer(){
+  const s = (CFG&&CFG.timerSec)>0 ? CFG.timerSec : 60;
+  await roomRef.child("state/timerEnd").set(now()+s*1000);
+}
+
+async function endGame(){
+  await roomRef.child("state").update({ phase:"done", timerEnd:null });
+}
+
+async function resetGame(keepPlayers){
+  advancing=false;
+  const updates = { orders:null, history:null, state:{phase:"lobby", period:0, timerEnd:null} };
+  if(keepPlayers){
+    const cfg=CFG||defaultConfig();
+    for(const [pid] of Object.entries(PLAYERS)){
+      updates["players/"+pid+"/cash"]=cfg.startCash;
+      updates["players/"+pid+"/shares"]=cfg.startShares;
+      updates["players/"+pid+"/stats"]={bought:0,sold:0,spent:0,earned:0,div:0};
+      updates["players/"+pid+"/active"]=true;
+    }
+  } else {
+    updates["players"]=null;
+  }
+  await roomRef.update(updates);
+  toast(keepPlayers ? "New game — same traders" : "Reset complete");
+}
+
+async function toggleActive(pid){
+  const p=PLAYERS[pid]; if(!p) return;
+  await roomRef.child("players/"+pid+"/active").set(!p.active);
+}
+
+/* ---------- player: orders ---------- */
+function myPlayer(){ return me.id && PLAYERS[me.id] ? PLAYERS[me.id] : null; }
+
+async function submitOrder(){
+  const p=myPlayer(); if(!p || !ST || ST.phase!=="trading") return;
+  if(!uiSide){ toast("Choose Buy, Sell or Sit out"); return; }
+  let order={ side:uiSide, ts: Date.now() };
+  if(uiSide!=="pass"){
+    const qty=parseInt($("qtyInput").value)||0;
+    const price=Math.round((parseFloat($("priceInput").value)||0)*100);
+    if(qty<1){ toast("Quantity must be at least 1"); return; }
+    if(price<1){ toast("Enter a price"); return; }
+    if(uiSide==="buy" && qty*price>p.cash){ toast("That costs more cash than you have"); return; }
+    if(uiSide==="sell" && qty>p.shares){ toast("You only have "+p.shares+" share"+(p.shares===1?"":"s")); return; }
+    order.qty=qty; order.price=price;
+  }
+  await roomRef.child("orders/"+ST.period+"/"+me.id).set(order);
+  toast("Order in. You can change it until the period closes.");
+}
+
+/* ---------- market clearing (uniform-price call auction) ---------- */
+function computeClearing(orders, players){
+  const bids=[], asks=[];
+  for(const [pid,o] of Object.entries(orders||{})){
+    const pl=players[pid]; if(!pl || o.side==="pass") continue;
+    if(o.side==="buy"){
+      const q=Math.min(o.qty, Math.floor(pl.cash/Math.max(1,o.price)));
+      for(let i=0;i<q;i++) bids.push({pid, price:o.price, ts:o.ts});
+    } else if(o.side==="sell"){
+      const q=Math.min(o.qty, pl.shares);
+      for(let i=0;i<q;i++) asks.push({pid, price:o.price, ts:o.ts});
+    }
+  }
+  bids.sort((a,b)=> b.price-a.price || a.ts-b.ts);
+  asks.sort((a,b)=> a.price-b.price || a.ts-b.ts);
+  let n=0;
+  while(n<bids.length && n<asks.length && bids[n].price>=asks[n].price) n++;
+  if(n===0) return { price:null, volume:0, buys:{}, sells:{}, bidUnits:bids.length, askUnits:asks.length };
+  const price = Math.round((bids[n-1].price + asks[n-1].price)/2);
+  const buys={}, sells={};
+  for(let i=0;i<n;i++){
+    buys[bids[i].pid]=(buys[bids[i].pid]||0)+1;
+    sells[asks[i].pid]=(sells[asks[i].pid]||0)+1;
+  }
+  return { price, volume:n, buys, sells, bidUnits:bids.length, askUnits:asks.length };
+}
+
+/* ---------- advance period (admin device only) ---------- */
+async function advance(force){
+  if(!isAdmin || advancing || !ST || ST.phase!=="trading") return;
+  advancing=true;
+  try{
+    const period = ST.period;
+    const [oSnap,pSnap,cSnap] = await Promise.all([
+      roomRef.child("orders/"+period).get(),
+      roomRef.child("players").get(),
+      roomRef.child("config").get()
+    ]);
+    const orders=oSnap.val()||{}, players=pSnap.val()||{}, cfg=cSnap.val();
+    const act = Object.entries(players).filter(([,p])=>p.active);
+    if(!force && !(act.length>0 && act.every(([pid])=>orders[pid]))) return;
+
+    const res = computeClearing(orders, players);
+    const divs = cfg.dividends;
+    const dividend = divs[Math.floor(Math.random()*divs.length)];
+
+    // apply trades + dividend locally
+    const updates={};
+    const newShares={};
+    for(const [pid,p] of Object.entries(players)){
+      let cash=p.cash, shares=p.shares;
+      const st=p.stats||{bought:0,sold:0,spent:0,earned:0,div:0};
+      const b=res.buys[pid]||0, s=res.sells[pid]||0;
+      if(b){ cash-=b*res.price; shares+=b; st.bought+=b; st.spent+=b*res.price; }
+      if(s){ cash+=s*res.price; shares-=s; st.sold+=s; st.earned+=s*res.price; }
+      const dpay=shares*dividend;
+      cash+=dpay; st.div+=dpay;
+      updates["players/"+pid+"/cash"]=cash;
+      updates["players/"+pid+"/shares"]=shares;
+      updates["players/"+pid+"/stats"]=st;
+      newShares[pid]=shares;
+    }
+    updates["history/"+period] = {
+      price:res.price, volume:res.volume, dividend,
+      fv: fundamental(cfg, period),
+      bidUnits:res.bidUnits, askUnits:res.askUnits,
+      submitted:Object.keys(orders).length, seats:act.length
+    };
+    const isLast = period>=cfg.periods;
+    updates["state"] = isLast
+      ? { phase:"done", period, timerEnd:null }
+      : { phase:"trading", period:period+1, timerEnd: cfg.timerSec>0 ? now()+cfg.timerSec*1000 : null };
+    await roomRef.update(updates);
+  } finally { advancing=false; }
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  if(!configured()) return;
+  if(!ST){ return; }
+  if(isAdmin){
+    if(ST.phase==="done"){ show("scr-analysis"); renderAnalysis(); }
+    else { show("scr-admin"); renderAdmin(); }
+    return;
+  }
+  const p=myPlayer();
+  if(ST.phase==="lobby"){
+    if(p){ show("scr-lobby"); renderLobby(); }
+    else show("scr-landing");
+  } else if(ST.phase==="trading"){
+    if(p || me.id==="obs"){ show("scr-trade"); renderTrade(); }
+    else show("scr-landing");
+  } else if(ST.phase==="done"){
+    show("scr-analysis"); renderAnalysis();
+  }
+}
+
+function rulesHTML(cfg){
+  const divs=(cfg.dividends||[]).map(d=>d+"¢").join(" / ");
+  return [
+    "You start with <b>"+fmt$(cfg.startCash)+"</b> cash and <b>"+cfg.startShares+" shares</b>.",
+    "The market runs for <b>"+cfg.periods+" periods</b>. Each period you may place <b>one order</b>: buy, sell, or sit out.",
+    "All orders clear at <b>one market price</b> where supply meets demand.",
+    "After trading, every share pays a random dividend: <b>"+divs+"</b> (each equally likely, average "+expDiv(cfg).toFixed(0)+"¢).",
+    "<b>After the last period, shares are worth nothing.</b> Only cash counts at the end."
+  ].map(x=>"<li>"+x+"</li>").join("");
+}
+
+function renderLobby(){
+  const cfg=CFG||defaultConfig();
+  $("lobbyName").textContent = me.name||"";
+  $("rulesList").innerHTML = rulesHTML(cfg);
+  const entries = Object.entries(PLAYERS).sort((a,b)=>(a[1].joinedAt||0)-(b[1].joinedAt||0));
+  $("lobbyCount").textContent = entries.length;
+  $("lobbyList").innerHTML = entries.map(([pid,p])=>
+    '<li><span class="nm"><span class="dot done"></span>'+esc(p.name)+(pid===me.id?' <span class="pill ok">you</span>':'')+'</span></li>'
+  ).join("") || '<li><span class="nm">No one yet — be patient!</span></li>';
+}
+
+function renderTrade(){
+  const cfg=CFG||defaultConfig();
+  const p=myPlayer();
+  $("tPeriod").textContent = ST.period+" / "+cfg.periods;
+  const lp=lastTradedPrice();
+  const priceEl=$("tPrice");
+  priceEl.textContent = fmt$(lp);
+  priceEl.classList.remove("up","down");
+  const prev = prevTradedPrice();
+  if(lp!=null && prev!=null){ if(lp>prev) priceEl.classList.add("up"); else if(lp<prev) priceEl.classList.add("down"); }
+  $("tCash").textContent = p?fmt$(p.cash):"–";
+  $("tShares").textContent = p?p.shares:"–";
+
+  // last period banner
+  const lastP = ST.period-1;
+  const banner=$("lastResultBanner");
+  if(lastP>=1 && HISTORY[lastP]){
+    const h=HISTORY[lastP];
+    banner.style.display="";
+    banner.innerHTML = "<b>Period "+lastP+":</b> " +
+      (h.price!=null ? h.volume+" share"+(h.volume===1?"":"s")+" traded at <b class='mono'>"+fmt$(h.price)+"</b>." : "no trade — bids and asks didn't cross.") +
+      " Dividend paid: <b class='mono'>"+h.dividend+"¢</b> per share.";
+  } else banner.style.display="none";
+
+  drawPriceChart("playerChart", cfg, !!cfg.showFV);
+
+  // order pad
+  const isObs = !p;
+  $("orderCard").style.display = isObs ? "none" : "";
+  $("observerNote").style.display = isObs ? "" : "none";
+  if(p){
+    const mine = ORDERS[me.id];
+    const note=$("submittedNote");
+    if(mine){
+      note.style.display="";
+      note.innerHTML = "✓ Submitted: <b>"+describeOrder(mine)+"</b>. Waiting for the period to close — you can still change it.";
+      $("submitOrderBtn").textContent="Change order";
+    } else {
+      note.style.display="none";
+      $("submitOrderBtn").textContent="Submit order";
+    }
+    renderOrderPad();
+  }
+
+  // who's in
+  const act=activePlayers().sort((a,b)=>(a[1].joinedAt||0)-(b[1].joinedAt||0));
+  const waiting = act.filter(([pid])=>!ORDERS[pid]).length;
+  $("waitCount").textContent = waiting===0 ? "no one — clearing…" : waiting+" trader"+(waiting===1?"":"s");
+  $("tradeList").innerHTML = act.map(([pid,pl])=>
+    '<li><span class="nm"><span class="dot '+(ORDERS[pid]?"done":"")+'"></span>'+esc(pl.name)+(pid===me.id?' <span class="pill ok">you</span>':'')+'</span>'+
+    '<span class="pill '+(ORDERS[pid]?"ok":"")+'">'+(ORDERS[pid]?"in":"deciding")+'</span></li>'
+  ).join("");
+}
+
+function prevTradedPrice(){
+  let prices=[];
+  for(let q=1;q<=ST.period;q++){ if(HISTORY[q]&&HISTORY[q].price!=null) prices.push(HISTORY[q].price); }
+  return prices.length>=2 ? prices[prices.length-2] : null;
+}
+
+function describeOrder(o){
+  if(o.side==="pass") return "sit out this period";
+  return (o.side==="buy"?"buy ":"sell ")+o.qty+" @ "+fmt$(o.price);
+}
+
+function renderOrderPad(){
+  $("segBuy").className = uiSide==="buy" ? "on-buy" : "";
+  $("segSell").className = uiSide==="sell" ? "on-sell" : "";
+  $("segPass").className = uiSide==="pass" ? "on-pass" : "";
+  $("orderFields").style.display = (uiSide==="pass"||!uiSide) ? "none" : "";
+  renderOrderHint();
+}
+
+function renderOrderHint(){
+  const p=myPlayer(); if(!p) return;
+  const hint=$("orderHint");
+  const qty=parseInt($("qtyInput").value)||0;
+  const price=Math.round((parseFloat($("priceInput").value)||0)*100);
+  if(uiSide==="buy"){
+    $("priceLabel").textContent="Highest price you'll pay per share ($)";
+    hint.innerHTML = "Cash available: <b class='mono'>"+fmt$(p.cash)+"</b>"+(qty&&price?" · this order reserves <b class='mono'>"+fmt$(qty*price)+"</b>":"");
+  } else if(uiSide==="sell"){
+    $("priceLabel").textContent="Lowest price you'll accept per share ($)";
+    hint.innerHTML = "Shares you hold: <b class='mono'>"+p.shares+"</b>"+(qty&&price?" · at your price this brings in <b class='mono'>"+fmt$(qty*price)+"</b>":"");
+  }
+}
+
+function renderAdmin(){
+  const cfg=CFG||defaultConfig();
+  const inLobby = ST.phase==="lobby";
+  $("aPhase").textContent = inLobby ? "Lobby" : "Trading";
+  $("aPeriod").textContent = inLobby ? "–" : ST.period+" / "+cfg.periods;
+  $("aPrice").textContent = fmt$(lastTradedPrice());
+  $("adminConfigCard").style.display = inLobby ? "" : "none";
+  $("adminLiveCard").style.display = inLobby ? "none" : "";
+  if(inLobby){
+    // populate config inputs once per lobby entry
+    if(!renderAdmin._filled){
+      $("cfgPeriods").value=cfg.periods; $("cfgTimer").value=cfg.timerSec;
+      $("cfgCash").value=(cfg.startCash/100).toFixed(2); $("cfgShares").value=cfg.startShares;
+      $("cfgDivs").value=(cfg.dividends||[]).join(", "); $("cfgShowFV").checked=!!cfg.showFV;
+      updateCfgPreview(); renderAdmin._filled=true;
+    }
+  } else renderAdmin._filled=false;
+
+  drawPriceChart("adminChart", cfg, true);
+
+  const entries=Object.entries(PLAYERS).sort((a,b)=>(a[1].joinedAt||0)-(b[1].joinedAt||0));
+  $("aCount").textContent=entries.length;
+  $("aSubmitted").textContent = entries.filter(([pid,p])=>p.active&&ORDERS[pid]).length + " / " + entries.filter(([,p])=>p.active).length;
+  $("adminList").innerHTML = entries.map(([pid,p])=>{
+    const o=ORDERS[pid];
+    return '<li><span class="nm"><span class="dot '+(o?"done":"")+'"></span>'+esc(p.name)+
+      (p.active?'':' <span class="pill warn">benched</span>')+'</span>'+
+      '<span style="display:flex;gap:6px;align-items:center">'+
+      '<span class="pill mono">'+fmt$(p.cash)+' · '+p.shares+'sh</span>'+
+      (!inLobby&&o?'<span class="pill ok">'+esc(shortOrder(o))+'</span>':'')+
+      '<button class="btn-small btn-ghost" onclick="toggleActive(\''+pid+'\')">'+(p.active?"bench":"seat")+'</button>'+
+      '</span></li>';
+  }).join("") || '<li><span class="nm">No traders yet — students open this same page and enter a name.</span></li>';
+}
+function shortOrder(o){ return o.side==="pass"?"pass":(o.side==="buy"?"B":"S")+o.qty+"@"+(o.price/100).toFixed(2); }
+
+/* ---------- analysis ---------- */
+function renderAnalysis(){
+  const cfg=CFG||defaultConfig();
+  $("adminResetCard").style.display = isAdmin ? "" : "none";
+
+  const hist=[]; for(let p=1;p<=cfg.periods;p++){ if(HISTORY[p]) hist.push({p,...HISTORY[p]}); }
+  const traded = hist.filter(h=>h.price!=null);
+
+  // metrics
+  let peakDev=null, peakP=null, meanAbs=0, vol=0;
+  traded.forEach(h=>{ const dev=h.price-h.fv; if(peakDev==null||dev>peakDev){peakDev=dev; peakP=h.p;} });
+  hist.forEach(h=>{ if(h.price!=null) meanAbs+=Math.abs(h.price-h.fv); vol+=h.volume; });
+  meanAbs = traded.length? meanAbs/traded.length : 0;
+  const maxPrice = traded.length? Math.max(...traded.map(h=>h.price)) : null;
+  const endPrice = traded.length? traded[traded.length-1].price : null;
+  const crash = (maxPrice!=null&&endPrice!=null)? maxPrice-endPrice : null;
+  const totShares = Object.values(PLAYERS).reduce((a,p)=>a+ (p.shares||0),0) || (Object.keys(PLAYERS).length*cfg.startShares);
+  const outstanding = Object.keys(PLAYERS).length * cfg.startShares;
+
+  $("metricRow").innerHTML =
+    metric(peakDev!=null? (peakDev>=0?"+":"")+fmt$(Math.abs(peakDev)).replace("$", peakDev<0?"-$":"$") : "–",
+           peakDev!=null? "peak gap vs value (P"+peakP+")":"peak gap vs value") +
+    metric(fmt$(Math.round(meanAbs)), "avg mispricing") +
+    metric(outstanding? (vol/Math.max(1,outstanding)).toFixed(1)+"×" : vol+"", "share turnover");
+
+  drawAnalysisPrice(cfg, hist);
+  drawVolume(cfg, hist);
+
+  // leaderboard
+  const rows = Object.entries(PLAYERS)
+    .map(([pid,p])=>({pid, ...p}))
+    .sort((a,b)=>b.cash-a.cash);
+  $("leaderTable").innerHTML =
+    "<tr><th>#</th><th>Trader</th><th>Final cash</th><th>Bought</th><th>Sold</th><th>Dividends</th></tr>" +
+    rows.map((p,i)=>"<tr class='"+(i===0?"rank1":"")+"'><td>"+(i+1)+"</td><td>"+esc(p.name)+(p.pid===me.id?" <span class='pill ok'>you</span>":"")+"</td>"+
+      "<td class='mono'>"+fmt$(p.cash)+"</td><td class='mono'>"+((p.stats&&p.stats.bought)||0)+"</td>"+
+      "<td class='mono'>"+((p.stats&&p.stats.sold)||0)+"</td><td class='mono'>"+fmt$((p.stats&&p.stats.div)||0)+"</td></tr>").join("");
+
+  $("divLog").innerHTML = hist.map(h=>"P"+h.p+": "+h.dividend+"¢").join(" &nbsp;·&nbsp; ") || "No periods played.";
+}
+function metric(v,k){ return '<div class="stat"><div class="v">'+v+'</div><div class="k">'+k+'</div></div>'; }
+
+/* ---------- charts ---------- */
+function chartOf(id, cfgObj){
+  if(charts[id]) charts[id].destroy();
+  charts[id]=new Chart($(id).getContext("2d"), cfgObj);
+}
+function seriesFromHistory(cfg){
+  const labels=[], price=[], fv=[];
+  for(let p=1;p<=cfg.periods;p++){
+    labels.push("P"+p);
+    price.push(HISTORY[p]&&HISTORY[p].price!=null ? HISTORY[p].price/100 : null);
+    fv.push(fundamental(cfg,p)/100);
+  }
+  return {labels,price,fv};
+}
+function baseOpts(){
+  return { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{labels:{boxWidth:14, font:{size:12}}} },
+    scales:{ y:{ ticks:{callback:v=>"$"+Number(v).toFixed(2), font:{family:"IBM Plex Mono"}}, beginAtZero:true },
+             x:{ ticks:{font:{size:11}} } } };
+}
+function drawPriceChart(id, cfg, showFV){
+  const s=seriesFromHistory(cfg);
+  const ds=[{ label:"Market price", data:s.price, borderColor:"#185C4B", backgroundColor:"#185C4B",
+              spanGaps:true, tension:.25, pointRadius:4, pointHoverRadius:6, borderWidth:2.5 }];
+  if(showFV) ds.push({ label:"Fundamental value", data:s.fv, borderColor:"#D99000", borderDash:[6,5], pointRadius:0, borderWidth:2 });
+  chartOf(id, { type:"line", data:{labels:s.labels, datasets:ds}, options:baseOpts() });
+}
+function drawAnalysisPrice(cfg, hist){
+  const s=seriesFromHistory(cfg);
+  chartOf("anPriceChart", { type:"line", data:{labels:s.labels, datasets:[
+    { label:"Market price", data:s.price, borderColor:"#185C4B", backgroundColor:"rgba(24,92,75,.12)",
+      spanGaps:true, tension:.25, pointRadius:4, borderWidth:2.5, fill:{target:{value:0}} },
+    { label:"Fundamental value", data:s.fv, borderColor:"#D99000", borderDash:[6,5], pointRadius:0, borderWidth:2.5 }
+  ]}, options:baseOpts() });
+}
+function drawVolume(cfg, hist){
+  const labels=[], vols=[];
+  for(let p=1;p<=cfg.periods;p++){ labels.push("P"+p); vols.push(HISTORY[p]?HISTORY[p].volume:0); }
+  const o=baseOpts(); o.scales.y.ticks.callback=v=>v; o.plugins.legend.display=false;
+  chartOf("anVolChart", { type:"bar", data:{labels, datasets:[{data:vols, backgroundColor:"#5C8D7D", borderRadius:5}]}, options:o });
+}
+
+/* ---------- misc ---------- */
+function esc(s){ return String(s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+window.toggleActive = toggleActive;
+
+boot();
+</script>
+</body>
+</html>
