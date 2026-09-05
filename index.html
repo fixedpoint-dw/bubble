@@ -125,6 +125,8 @@ label{display:block; font-size:13px; font-weight:600; color:var(--muted); margin
 
 .result-banner{border-left:4px solid var(--fv); background:#FFF8EA; border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:14px}
 .notice{background:var(--chip); border-radius:10px; padding:10px 12px; font-size:14px; color:var(--muted); margin-top:10px}
+.overlay{position:fixed; inset:0; background:rgba(20,35,29,.45); display:flex; align-items:center; justify-content:center; padding:20px; z-index:60}
+.overlay .card{width:100%; max-width:420px; margin:0}
 .admin-link{display:block; text-align:center; margin-top:26px; color:var(--muted); font-size:13px; text-decoration:underline; background:none; border:none; width:100%; padding:8px; font-family:inherit; font-weight:400; cursor:pointer}
 table.book{width:100%; border-collapse:collapse; font-size:14px}
 table.book th{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); text-align:left; padding:6px 4px; border-bottom:1px solid var(--line)}
@@ -167,18 +169,11 @@ code{background:var(--chip); padding:2px 6px; border-radius:6px; font-size:14px}
     <button class="btn-primary" id="joinBtn" data-i18n="joinBtn">Take a seat on the floor</button>
     <div class="notice" id="joinNotice" style="display:none"></div>
   </div>
-  <button class="admin-link" id="showAdminBtn" data-i18n="showAdmin">Instructor login</button>
-  <div class="card" id="adminLoginCard" style="display:none">
-    <h3 data-i18n="instructor">Instructor</h3>
-    <label for="pwInput" data-i18n="password">Password</label>
-    <input type="password" id="pwInput" autocomplete="off">
-    <div style="height:12px"></div>
-    <button class="btn-primary" id="adminLoginBtn" data-i18n="openControl">Open control room</button>
-  </div>
+  <button class="admin-link js-admin-open" id="showAdminBtn" data-i18n="showAdmin">Instructor login</button>
 </div>
 
 <!-- ============ PLAYER LOBBY ============ -->
-<div class="screen" id="scr-lobby">
+<div class="screen" id="scr-lobby" data-adminlink="1">
   <div class="brand"><h1 data-i18n="lobbyH1">Trading floor opens soon</h1></div>
   <p class="sub" id="lobbySub"></p>
   <div class="card">
@@ -189,6 +184,7 @@ code{background:var(--chip); padding:2px 6px; border-radius:6px; font-size:14px}
     <h3><span data-i18n="lobbySeatedTitle">Traders seated</span> (<span id="lobbyCount">0</span>)</h3>
     <ul class="plist" id="lobbyList"></ul>
   </div>
+  <button class="admin-link js-admin-open" data-i18n="showAdmin">Instructor login</button>
 </div>
 
 <!-- ============ PLAYER TRADING (continuous double auction) ============ -->
@@ -251,6 +247,7 @@ code{background:var(--chip); padding:2px 6px; border-radius:6px; font-size:14px}
   <button class="btn-ghost" id="doneBtn" data-i18n="doneIdle">I'm done this period</button>
   <div class="notice" id="doneNote" style="display:none"></div>
   <div class="notice" id="observerNote" style="display:none" data-i18n="observerNote">You're watching as an observer — the market started before you joined. You'll be able to join the next game.</div>
+  <button class="admin-link js-admin-open" data-i18n="showAdmin">Instructor login</button>
 </div>
 
 <!-- ============ ADMIN ============ -->
@@ -358,6 +355,18 @@ code{background:var(--chip); padding:2px 6px; border-radius:6px; font-size:14px}
     <button class="btn-primary" id="playAgainBtn" data-i18n="playAgain">Play again with the same class</button>
     <div style="height:10px"></div>
     <button class="btn-ghost" id="fullResetBtn" data-i18n="fullReset">Full reset (clear everything)</button>
+  </div>
+  <button class="admin-link js-admin-open" data-i18n="showAdmin">Instructor login</button>
+</div>
+
+<div class="overlay" id="adminOverlay" style="display:none">
+  <div class="card">
+    <h3 data-i18n="instructor">Instructor</h3>
+    <label for="pwInput" data-i18n="password">Password</label>
+    <input type="password" id="pwInput" autocomplete="off">
+    <div style="height:12px"></div>
+    <button class="btn-primary" id="adminLoginBtn" data-i18n="openControl">Open control room</button>
+    <button class="admin-link" id="adminOverlayClose" data-i18n="closeLogin">Close</button>
   </div>
 </div>
 
@@ -512,7 +521,8 @@ en:{
   dbUnreachable:"Can't reach the database \u2014 check your connection.",
   pickName:"Pick a name first",
   welcomeInstructor:"Welcome, instructor",
-  wrongPassword:"Wrong password",
+  wrongPassword:"Wrong password", closeLogin:"Close",
+  staleReset:"The previous session was inactive for over an hour and was reset to the lobby.",
   enterDividend:"Enter at least one dividend value",
   need2:"Need at least 2 traders seated",
   marketOpen:"Market open \u2014 period 1",
@@ -635,7 +645,8 @@ ko:{
   dbUnreachable:"\ub370\uc774\ud130\ubca0\uc774\uc2a4\uc5d0 \uc5f0\uacb0\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4 \u2014 \uc778\ud130\ub137 \uc5f0\uacb0\uc744 \ud655\uc778\ud558\uc138\uc694.",
   pickName:"\uc774\ub984\uc744 \uba3c\uc800 \uc785\ub825\ud558\uc138\uc694",
   welcomeInstructor:"\ud658\uc601\ud569\ub2c8\ub2e4, \uad50\uc218\uc790\ub2d8",
-  wrongPassword:"\ube44\ubc00\ubc88\ud638\uac00 \ud2c0\ub838\uc2b5\ub2c8\ub2e4",
+  wrongPassword:"\ube44\ubc00\ubc88\ud638\uac00 \ud2c0\ub838\uc2b5\ub2c8\ub2e4", closeLogin:"\ub2eb\uae30",
+  staleReset:"1\uc2dc\uac04 \uc774\uc0c1 \ud65c\ub3d9\uc774 \uc5c6\uc5b4 \uc774\uc804 \uc138\uc158\uc744 \ub300\uae30\uc2e4\ub85c \ucd08\uae30\ud654\ud588\uc2b5\ub2c8\ub2e4.",
   enterDividend:"\ubc30\ub2f9 \uac12\uc744 \ucd5c\uc18c \ud558\ub098 \uc785\ub825\ud558\uc138\uc694",
   need2:"\ud2b8\ub808\uc774\ub354\uac00 \ucd5c\uc18c 2\uba85 \ud544\uc694\ud569\ub2c8\ub2e4",
   marketOpen:"\uc2dc\uc7a5 \uac1c\uc7a5 \u2014 1\ub77c\uc6b4\ub4dc",
@@ -811,6 +822,7 @@ async function act(a){
       const r = applyAction(live, me.id, a);
       lastErr = r.err||null; lastTrade = r.trade||null;
       if(r.err || !r.live) return;      // abort
+      r.live.lastActivity = now();
       return r.live;
     });
     if(!res.committed){
@@ -880,13 +892,47 @@ function prevPrice(){
 }
 
 /* ---------- period lifecycle (admin device) ---------- */
+const STALE_MS = 60*60*1000;   // reset abandoned sessions after 1 hour of inactivity
+let staleBusy=false;
+async function maybeResetStale(){
+  if(!LIVE || staleBusy) return;
+  if(LIVE.phase==="lobby") return;
+  if(!LIVE.lastActivity){
+    // legacy session without a stamp: start the clock now (idempotent across clients)
+    staleBusy=true;
+    try{ await liveRef.child("lastActivity").transaction(v=>v||now()); } finally{ staleBusy=false; }
+    return;
+  }
+  if(now()-LIVE.lastActivity <= STALE_MS) return;
+  staleBusy=true;
+  try{
+    const res=await liveRef.transaction(live=>{
+      if(!live || live.phase==="lobby") return;                       // already reset
+      if(!live.lastActivity || now()-live.lastActivity<=STALE_MS) return;  // no longer stale
+      return {phase:"lobby", period:0, lastActivity:now()};
+    });
+    if(res.committed){
+      // only the committing client cleans up round data; roster is kept
+      const updates={history:null};
+      for(const pid of Object.keys(PLAYERS)){
+        updates["players/"+pid+"/stats"]={bought:0,sold:0,spent:0,earned:0,div:0};
+        updates["players/"+pid+"/active"]=true;
+      }
+      await roomRef.update(updates);
+      toast(tr("staleReset"));
+    }
+  }catch(e){} finally{ staleBusy=false; }
+}
+
 function onLiveChange(){
+  maybeResetStale();
   if(!isAdmin||!LIVE||LIVE.phase!=="trading") return;
   const act=activeSeated();
   if(act.length>0 && act.every(pid=>LIVE.done&&LIVE.done[pid])) closePeriod(false);
 }
 function tick(){
   if(!LIVE) return;
+  maybeResetStale();
   const remain = LIVE.timerEnd ? Math.max(0,Math.ceil((LIVE.timerEnd-now())/1000)) : null;
   updateTimerChip("tTimer","tTimerCell",remain);
   updateTimerChip("aTimer","aTimerCell",remain);
@@ -920,6 +966,7 @@ async function closePeriod(byTimer){
       live.tape=null; live.bids=null; live.asks=null; live.done=null;
       if(live.period>=cfg.periods){ live.phase="done"; live.timerEnd=null; }
       else { live.period=live.period+1; live.timerEnd = cfg.timerSec>0 ? now()+cfg.timerSec*1000 : null; }
+      live.lastActivity = now();
       return live;
     });
     if(!res.committed||!captured) return;
@@ -980,19 +1027,19 @@ async function startGame(){
   for(const [pid] of Object.entries(PLAYERS)){
     updates["players/"+pid+"/stats"]={bought:0,sold:0,spent:0,earned:0,div:0};
   }
-  updates["live"]={ phase:"trading", period:1, players:seats,
+  updates["live"]={ phase:"trading", period:1, players:seats, lastActivity: now(),
                     timerEnd: cfg.timerSec>0 ? now()+cfg.timerSec*1000 : null };
   await roomRef.update(updates);
   toast(tr("marketOpen"));
 }
 async function startTimer(){
   const s=(CFG&&CFG.timerSec)>0?CFG.timerSec:60;
-  await liveRef.child("timerEnd").set(now()+s*1000);
+  await liveRef.update({ timerEnd: now()+s*1000, lastActivity: now() });
 }
-async function endGame(){ await liveRef.update({phase:"done", timerEnd:null, bids:null, asks:null}); }
+async function endGame(){ await liveRef.update({phase:"done", timerEnd:null, bids:null, asks:null, lastActivity:now()}); }
 async function resetGame(keepPlayers){
   closing=false;
-  const updates={ history:null, live:{phase:"lobby", period:0} };
+  const updates={ history:null, live:{phase:"lobby", period:0, lastActivity:now()} };
   if(keepPlayers){
     for(const [pid] of Object.entries(PLAYERS)){
       updates["players/"+pid+"/stats"]={bought:0,sold:0,spent:0,earned:0,div:0};
@@ -1021,18 +1068,30 @@ async function join(){
     stats:{bought:0,sold:0,spent:0,earned:0,div:0}
   });
   me={id:pid,name}; store.set("vsb_pid",pid); store.set("vsb_name",name);
+  liveRef.child("lastActivity").set(now());
   render();
 }
 function adminLogin(){
-  if($("pwInput").value===ADMIN_PASSWORD){ isAdmin=true; store.set("vsb_admin","1"); toast(tr("welcomeInstructor")); render(); }
+  if($("pwInput").value===ADMIN_PASSWORD){
+    isAdmin=true; store.set("vsb_admin","1");
+    $("adminOverlay").style.display="none"; $("pwInput").value="";
+    toast(tr("welcomeInstructor")); render();
+  }
   else toast(tr("wrongPassword"));
+}
+function openAdminOverlay(){
+  if(isAdmin){ render(); return; }
+  $("adminOverlay").style.display="";
+  $("pwInput").focus();
 }
 
 /* ---------- UI wiring ---------- */
 function wireUI(){
   $("joinBtn").onclick=join;
   $("nameInput").addEventListener("keydown",e=>{ if(e.key==="Enter") join(); });
-  $("showAdminBtn").onclick=()=>{ const c=$("adminLoginCard"); c.style.display=c.style.display==="none"?"":"none"; };
+  document.querySelectorAll(".js-admin-open").forEach(b=>b.onclick=openAdminOverlay);
+  $("adminOverlayClose").onclick=()=>{ $("adminOverlay").style.display="none"; };
+  if(location.hash.replace("#","")==="admin" && !isAdmin) openAdminOverlay();
   $("adminLoginBtn").onclick=adminLogin;
   $("pwInput").addEventListener("keydown",e=>{ if(e.key==="Enter") adminLogin(); });
   $("langBtn").onclick=()=>setLang(LANG==="en"?"ko":"en");
@@ -1073,6 +1132,7 @@ function wireUI(){
 /* ---------- rendering ---------- */
 function render(){
   if(!configured()||!LIVE) return;
+  document.querySelectorAll(".js-admin-open").forEach(b=>b.style.display=isAdmin?"none":"");
   if(isAdmin){
     if(LIVE.phase==="done"){ show("scr-analysis"); renderAnalysis(); }
     else { show("scr-admin"); renderAdmin(); }
